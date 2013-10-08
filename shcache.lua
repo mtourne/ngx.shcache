@@ -19,7 +19,7 @@ local function _get_default_lock_options()
    return {
       exptime = 1,     -- max wait if failing to call unlock()
       timeout = 0.5,   -- max waiting time of lock()
-      max_step = 0.1,  -- max sleeping interval,
+      max_step = 0.1,  -- max sleeping interval
    }
 end
 
