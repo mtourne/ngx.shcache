@@ -29,14 +29,6 @@ if conf then
    DEFAULT_ACTUALIZE_TTL = conf.DEFAULT_ACTUALIZE_TTL or DEFAULT_ACTUALIZE_TTL
 end
 
-local locks = ngx.shared.locks
-
--- check for existence, locks is not directly used
-if not locks then
-   ngx.log(ngx.CRIT, 'shared mem locks is missing.')
-   return nil
-end
-
 local band = bit.band
 local bor = bit.bor
 local st_format = string.format
@@ -170,9 +162,17 @@ local function new(self, shdict, callbacks, opts)
       from_cache = false,
       cache_state = MISS_STATE,
       lock_status = 'NO_LOCK',
-
+      locks_shdict = opts.lock_shdict or "locks",
       name = name,
    }
+
+   local locks = ngx.shared[obj.locks_shdict]
+
+   -- check for existence, locks is not directly used
+   if not locks then
+       ngx.log(ngx.CRIT, 'shared mem locks is missing.')
+       return nil
+   end
 
    local self = setmetatable(obj, obj_mt)
 
@@ -191,7 +191,7 @@ M.new = new
 local function _get_lock(self)
    local lock = self.lock
    if not lock then
-      lock = resty_lock:new("locks", self.lock_options)
+      lock = resty_lock:new(self.locks_shdict, self.lock_options)
       self.lock = lock
    end
    return lock

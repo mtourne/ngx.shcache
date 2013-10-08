@@ -18,9 +18,6 @@ external lookup stampeded via the usage of locks
 This is based on the lock mechanism devised by Yichun "agentzh" Zhang, and available here:
 http://github.com/agentzh/lua-resty-lock
 
-It assumes that a "locks" shared dict, has been created using the directive
-`lua_shared_dict` in your Nginx conf.
-
 An overview of the state machine is available within this repo, as a graphviz file.
 
 
@@ -134,6 +131,9 @@ re-actualize a stale record for, in seconds
 set option to lock see : http://github.com/agentzh/lua-resty-lock for more details.
 * `opts.name`
 if shcache object is named, it will automatically register itself in ngx.ctx.shcache (useful for logging).
+* `opts.locks_shdict`
+Name of shared dict to use for locks that has been created using the directive `lua_shared_dict` in your Nginx conf.
+defaults to `locks`
 
 load
 ----
