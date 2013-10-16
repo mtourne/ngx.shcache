@@ -167,9 +167,18 @@ local function new(self, shdict, callbacks, opts)
 
       lock_options = lock_options,
 
+      -- STATUS --
+
       from_cache = false,
+      cache_status = 'UNDEF',
       cache_state = MISS_STATE,
       lock_status = 'NO_LOCK',
+
+      -- shdict:set() pushed out another value
+      forcible_set = false,
+
+      -- cache hit on second attempt (post lock)
+      hit2 = false,
 
       name = name,
    }
@@ -203,7 +212,7 @@ local function _unlock(self)
    if lock then
       local ok, err = lock:unlock()
       if not ok then
-         ngx.log(ngx.CRIT, "failed to unlock :" , err)
+         ngx.log(ngx.ERR, "failed to unlock :" , err)
       end
       self.lock = nil
    end
@@ -231,11 +240,15 @@ local function _set(self, ...)
       print("saving key: ", key, ", for: ", ttl)
    end
 
-   local ok, err = self.shdict:set(...)
+   local ok, err, forcible = self.shdict:set(...)
+
+   self.forcible_set = forcible
+
    if not ok then
       local key, data, ttl, flags = unpack({...})
       ngx.log(ngx.ERR, 'failed to set key: ', key, ', err: ', err)
    end
+
    return ok
 end
 
@@ -333,38 +346,45 @@ local function load(self, key)
    -- lock: set a lock before performing external lookup
    local lock = _get_lock(self)
    local elapsed, err = lock:lock(key)
-;
+
    if not elapsed then
       -- failed to acquire lock, still proceed normally to external_lookup
       -- unlock() might fail.
-      ngx.log(ngx.CRIT, "failed to acquire the lock: ", err)
-
+      ngx.log(ngx.ERR, "failed to acquire the lock: ", err)
+      self.lock_status = 'ERROR'
+      -- _unlock won't try to unlock() without a valid lock
+      self.lock = nil
    else
-      -- lock acquired
+      -- lock acquired successfuly
 
       if elapsed > 0 then
 
-         self.lock_status = 'WAITED'
          -- elapsed > 0 => waited lock (other thread might have :set() the data)
-         -- perform cache_load 2
-         data, flags = _get(self, key)
-         if data then
-            -- hit2 : process cache hit
-            -- Note: there should always be data (because of positive / negative caching)
+         -- (more likely to get a HIT on cache_load 2)
+         self.lock_status = 'WAITED'
 
-            -- unlock before de-serializing cached data
-            _unlock(self)
-            data = _process_cached_data(self, data, flags)
-            return _return(self, data)
-         else
-            -- miss: weird state, but still continue onto the external_lookup
-            ngx.log(ngx.ERR, "weird state: elapsed > 0 but no data")
-         end
       else
+
          -- elapsed == 0 => immediate lock
+         -- it is less likely to get a HIT on cache_load 2
+         -- but still perform it (race condition cases)
          self.lock_status = 'IMMEDIATE'
-         -- continue to external lookup
       end
+
+      -- perform cache_load 2
+      data, flags = _get(self, key)
+      if data then
+         -- hit2 : process cache hit
+
+         self.hit2 = true
+
+         -- unlock before de-serializing cached data
+         _unlock(self)
+         data = _process_cached_data(self, data, flags)
+         return _return(self, data)
+      end
+
+      -- continue to external lookup
    end
 
    -- perform external lookup
@@ -393,7 +413,7 @@ local function load(self, key)
    end
 
    if DEBUG and data then
-      -- we didn't return it means it we had stale negative data
+      -- there is data, but it failed _is_empty() => stale negative data
       print('STALE_NEGATIVE data => cache as a new HIT_NEGATIVE')
    end
 
