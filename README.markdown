@@ -21,7 +21,11 @@ http://github.com/agentzh/lua-resty-lock
 It assumes that a "locks" shared dict, has been created using the directive
 `lua_shared_dict` in your Nginx conf.
 
-An overview of the state machine is available within this repo, as a graphviz file.
+An overview of the state machine is available within this repo, as a graphviz file
+
+or :
+
+![alt tag](https://raw.github.com/mtourne/ngx.shcache/master/shcache.gif)
 
 
 Usage
