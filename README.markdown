@@ -138,6 +138,9 @@ re-actualize a stale record for, in seconds
 set option to lock see : http://github.com/agentzh/lua-resty-lock for more details.
 * `opts.name`
 if shcache object is named, it will automatically register itself in ngx.ctx.shcache (useful for logging).
+* `opts.locks_shdict`
+Name of shared dict to use for locks that has been created using the directive `lua_shared_dict` in your Nginx conf.
+defaults to `locks`
 
 load
 ----

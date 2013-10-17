@@ -29,14 +29,6 @@ if conf then
    DEFAULT_ACTUALIZE_TTL = conf.DEFAULT_ACTUALIZE_TTL or DEFAULT_ACTUALIZE_TTL
 end
 
-local locks = ngx.shared.locks
-
--- check for existence, locks is not directly used
-if not locks then
-   ngx.log(ngx.CRIT, 'shared mem locks is missing.')
-   return nil
-end
-
 local band = bit.band
 local bor = bit.bor
 local st_format = string.format
@@ -123,6 +115,9 @@ end
 --   * opts.actualize_ttl   : re-actualize a stale record for, in seconds
 --   * opts.lock_options    : set option to lock see : http://github.com/agentzh/lua-resty-lock
 --                            for more details.
+--   * opts.locks_shdict    : specificy the name of the shdict containing the locks
+--                            (useful if you might have locks key collisions)
+--                            uses "locks" by default.
 --   * opts.name            : if shcache object is named, it will automatically
 --                            register itself in ngx.ctx.shcache (useful for logging).
 local function new(self, shdict, callbacks, opts)
@@ -167,6 +162,8 @@ local function new(self, shdict, callbacks, opts)
 
       lock_options = lock_options,
 
+      locks_shdict = opts.lock_shdict or "locks",
+
       -- STATUS --
 
       from_cache = false,
@@ -182,6 +179,15 @@ local function new(self, shdict, callbacks, opts)
 
       name = name,
    }
+
+   local locks = ngx.shared[obj.locks_shdict]
+
+   -- check for existence, locks is not directly used
+   if not locks then
+      ngx.log(ngx.CRIT, 'shared mem locks is missing.\n',
+              '## add to you lua conf: lua_shared_dict locks 5M; ##')
+       return nil
+   end
 
    local self = setmetatable(obj, obj_mt)
 
@@ -200,7 +206,7 @@ M.new = new
 local function _get_lock(self)
    local lock = self.lock
    if not lock then
-      lock = resty_lock:new("locks", self.lock_options)
+      lock = resty_lock:new(self.locks_shdict, self.lock_options)
       self.lock = lock
    end
    return lock
