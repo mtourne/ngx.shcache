@@ -44,7 +44,7 @@ Usage
         local lookup = function ()
             local memc, err = memcached:new()
             if not memc then
-                neturn nil, err
+                return nil, err
             end
 
             local ok, err = memc:connect("127.0.0.1", 11211)
@@ -65,7 +65,7 @@ Usage
         end
 
         local my_cache_table = shcache:new(
-            ngx.shared.cache_dict
+            ngx.shared.cache_dict,
             { external_lookup = lookup,
               encode = cmsgpack.pack,
               decode = cmsgpack.decode,
