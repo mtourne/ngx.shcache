@@ -23,7 +23,15 @@ local function _get_default_lock_options()
    }
 end
 
-local conf = require("conf")
+local function prequire(m)
+  local ok, err_or_module = pcall(require, m)
+  if not ok then
+     return nil, err_or_module
+  end
+  return err_or_module
+end
+
+local conf = prequire("conf")
 if conf then
    DEFAULT_NEGATIVE_TTL = conf.DEFAULT_NEGATIVE_TTL or DEFAULT_NEGATIVE_TTL
    DEFAULT_ACTUALIZE_TTL = conf.DEFAULT_ACTUALIZE_TTL or DEFAULT_ACTUALIZE_TTL
